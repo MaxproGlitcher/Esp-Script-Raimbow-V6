@@ -4,9 +4,8 @@ local worldToViewportPoint = camera.WorldToViewportPoint
 local userInputService = game:GetService("UserInputService")
 
 local teamCheckActive = false
-local toggleKey = Enum.KeyCode.E -- Remplacez "E" par la touche souhaitée
+local toggleKey = Enum.KeyCode.E -- Touche pour basculer le contrôle d'équipe
 
--- Fonction permettant de générer des couleurs arc-en-ciel
 local function rainbowColor(frequency)
     local r = math.floor(math.sin(frequency + 0) * 127 + 128)
     local g = math.floor(math.sin(frequency + 2) * 127 + 128)
@@ -14,14 +13,12 @@ local function rainbowColor(frequency)
     return Color3.fromRGB(r, g, b)
 end
 
--- Tableaux contenant les lignes de dessin, le BillboardGui et les boîtes de frappe de chaque joueur.
 local playerTracers = {}
 local playerInfoTexts = {}
 local playerHitboxes = {}
 
--- Créer et configurer BillboardGui pour le joueur
 local function createBillboardGui(player)
-    local billboardGui = Instance.new("BillboardGui", player.Character)
+    local billboardGui = Instance.new("BillboardGui")
     billboardGui.Size = UDim2.new(0, 200, 0, 75)
     billboardGui.StudsOffset = Vector3.new(0, 3, 0)
     billboardGui.AlwaysOnTop = true
@@ -53,7 +50,6 @@ local function createBillboardGui(player)
     return billboardGui, nameLabel, distanceLabel, healthLabel
 end
 
--- Mettre à jour le texte sur la distance et la santé
 local function updatePlayerInfo(player, distanceLabel, healthLabel, time)
     local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
     if rootPart then
@@ -70,7 +66,6 @@ local function updatePlayerInfo(player, distanceLabel, healthLabel, time)
     end
 end
 
--- Créer une hitbox pour le joueur
 local function createHitbox()
     local hitbox = Drawing.new("Square")
     hitbox.Thickness = 2
@@ -78,7 +73,6 @@ local function createHitbox()
     return hitbox
 end
 
--- Mise à jour des traceurs, des textes de distance et des hitboxes à chaque image
 local function update()
     local time = tick()
     for _, player in pairs(game.Players:GetPlayers()) do
@@ -98,6 +92,7 @@ local function update()
                 end
                 if not playerInfoTexts[player] then
                     local billboardGui, nameLabel, distanceLabel, healthLabel = createBillboardGui(player)
+                    billboardGui.Parent = player.Character:WaitForChild("HumanoidRootPart")
                     playerInfoTexts[player] = { gui = billboardGui, name = nameLabel, distance = distanceLabel, health = healthLabel }
                 end
                 if not playerHitboxes[player] then
@@ -125,7 +120,6 @@ local function update()
                         local nameLabel = playerInfoTexts[player].name
                         nameLabel.TextColor3 = rainbowColor(time + player.UserId)
 
-                        -- Mise à jour de la hitbox
                         local hitboxSize = (headPos - screenPos).magnitude * 2
                         hitbox.Size = Vector2.new(hitboxSize, hitboxSize * 2.5)
                         hitbox.Position = Vector2.new(screenPos.X - hitboxSize / 2, screenPos.Y - hitboxSize * 1.25)
@@ -149,45 +143,41 @@ local function update()
     end
 end
 
--- Fonction de gestion des nouveaux joueurs
 local function onPlayerAdded(player)
-    player.CharacterAdded:Connect(function()
-        wait(1) -- Donner au personnage le temps de se charger
+    player.CharacterAdded:Connect(function(character)
+        wait(1) -- Attendre que le personnage se charge
+        if playerTracers[player] then playerTracers[player]:Remove() playerTracers[player] = nil end
+        if playerInfoTexts[player] then playerInfoTexts[player].gui:Destroy() playerInfoTexts[player] = nil end
+        if playerHitboxes[player] then playerHitboxes[player]:Remove() playerHitboxes[player] = nil end
         update()
     end)
 end
 
--- Connecter l'événement PlayerAdded
 game.Players.PlayerAdded:Connect(onPlayerAdded)
 
--- Mise à jour des traceurs, des textes de distance et des hitboxes à chaque image
 game:GetService("RunService").RenderStepped:Connect(update)
 
--- Nettoyer les lieux après le départ d'un joueur
 game.Players.PlayerRemoving:Connect(function(player)
     if playerTracers[player] then playerTracers[player]:Remove() playerTracers[player] = nil end
     if playerInfoTexts[player] then playerInfoTexts[player].gui:Destroy() playerInfoTexts[player] = nil end
     if playerHitboxes[player] then playerHitboxes[player]:Remove() playerHitboxes[player] = nil end
 end)
 
--- Gérer les joueurs existants
 for _, player in pairs(game.Players:GetPlayers()) do
     onPlayerAdded(player)
 end
 
--- Gestion de l'entrée utilisateur pour le basculement du contrôle d'équipe
 userInputService.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and input.KeyCode == toggleKey then
         teamCheckActive = not teamCheckActive
     end
 end)
 
-
-Wait(2)
+wait(2)
 
 game:GetService("StarterGui"):SetCore("SendNotification",{
   Title = "ESP Script", 
-  Text = "Script Exercuter", 
+  Text = "Script Executed", 
   Icon = "rbxassetid://18940322843",
   Duration = 15
 })
@@ -195,14 +185,13 @@ game:GetService("StarterGui"):SetCore("SendNotification",{
 wait(2)
 
 game:GetService("StarterGui"):SetCore("SendNotification",{
-  Title = "Version V6 ", 
-  Text = "ESP V6 Load", 
+  Title = "Version V6", 
+  Text = "ESP V6 Loaded", 
   Icon = "rbxassetid://18940557702",
   Duration = 15
 })
 
-
 wait(1)
 
--- Notification Pour me contacter au cas problème avec le script cette notification dans la console est crée par moi même!!!
+-- Notification pour contacter en cas de problème avec le script.
 loadstring(game:HttpGet("https://pastebin.com/raw/3fnaqNVR"))()
