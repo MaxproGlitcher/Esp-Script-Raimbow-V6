@@ -173,14 +173,25 @@ userInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
-wait(2)
-
 game:GetService("StarterGui"):SetCore("SendNotification",{
   Title = "ESP Script", 
   Text = "Script Executed", 
   Icon = "rbxassetid://18940322843",
   Duration = 15
 })
+
+-- Code pour le Bruit de ouverture du Gui...
+
+task.spawn(function()
+  local beep = Instance.new("Sound");
+  beep.Volume = 1; -- de 0 à 1, vous pouvez en faire plus mais ce sera bruyant
+  beep.SoundId = "rbxassetid://6042053626";
+  beep.Parent = game:GetService("CoreGui");
+  beep:Play();
+  beep.Ended:Wait();
+  beep:Destroy();
+end)
+
 
 wait(2)
 
@@ -191,7 +202,18 @@ game:GetService("StarterGui"):SetCore("SendNotification",{
   Duration = 15
 })
 
-wait(1)
+-- Code pour le Bruit de ouverture du Gui...
+
+task.spawn(function()
+  local beep = Instance.new("Sound");
+  beep.Volume = 1; -- de 0 à 1, vous pouvez en faire plus mais ce sera bruyant
+  beep.SoundId = "rbxassetid://6042053626";
+  beep.Parent = game:GetService("CoreGui");
+  beep:Play();
+  beep.Ended:Wait();
+  beep:Destroy();
+end)
+
 
 -- Notification pour contacter en cas de problème avec le script.
 loadstring(game:HttpGet("https://pastebin.com/raw/3fnaqNVR"))()
