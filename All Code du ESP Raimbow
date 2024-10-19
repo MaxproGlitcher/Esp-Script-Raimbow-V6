@@ -173,6 +173,58 @@ userInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
+----------------------------------------------------------------------------------------------------------------------
+-- Code Pour Le Bruit Notification du Gui Esp Raimbow...
+
+task.spawn(function()
+    local beep = Instance.new("Sound");
+    beep.Volume = 1; -- De 0 à 1, Vous Pouvez En Faire Plus Mais Ce Sera Bruyant...
+    beep.SoundId = "rbxassetid://6042053626";
+    beep.Parent = game:GetService("CoreGui");
+    beep:Play();
+    beep.Ended:Wait();
+    beep:Destroy();
+  end)
+
+-- Notification Pour Le Gui Esp Raimbow Load
+
+loadstring(game:HttpGet("https://pastebin.com/raw/BXbCnaFx"))()
+
+----------------------------------------------------------------------------------------------------------------------
+-- Code Pour Le Bruit Notification By Créateur MaxproGlitcher...
+
+task.spawn(function()
+    local beep = Instance.new("Sound");
+    beep.Volume = 1; -- De 0 à 1, Vous Pouvez En Faire Plus Mais Ce Sera Bruyant...
+    beep.SoundId = "rbxassetid://6042053626";
+    beep.Parent = game:GetService("CoreGui");
+    beep:Play();
+    beep.Ended:Wait();
+    beep:Destroy();
+  end)
+  
+-- Notification By Créateur MaxproGlitcher...
+
+loadstring(game:HttpGet("https://pastebin.com/raw/jbQr9vKC"))()
+
+----------------------------------------------------------------------------------------------------------------------
+-- Code Pour Le Bruit Notification De La version Gui Esp Raimbow...
+
+task.spawn(function()
+    local beep = Instance.new("Sound");
+    beep.Volume = 1; -- De 0 à 1, Vous Pouvez En Faire Plus Mais Ce Sera Bruyant...
+    beep.SoundId = "rbxassetid://6042053626";
+    beep.Parent = game:GetService("CoreGui");
+    beep:Play();
+    beep.Ended:Wait();
+    beep:Destroy();
+  end)
+
+-- Notification De La version Gui Esp Raimbow...
+
+loadstring(game:HttpGet("https://pastebin.com/raw/fYHXpggN"))()
+
+----------------------------------------------------------------------------------------------------------------------
 game:GetService("StarterGui"):SetCore("SendNotification",{
   Title = "ESP Script", 
   Text = "Script Executed", 
@@ -180,40 +232,21 @@ game:GetService("StarterGui"):SetCore("SendNotification",{
   Duration = 15
 })
 
--- Code pour le Bruit de ouverture du Gui...
+-- Code Pour Le Bruit De Ouverture Du Gui...
 
 task.spawn(function()
   local beep = Instance.new("Sound");
-  beep.Volume = 1; -- de 0 à 1, vous pouvez en faire plus mais ce sera bruyant
+  beep.Volume = 1; -- De 0 à 1, Vous Pouvez En Faire Plus Mais Ce sera Bruyant...
   beep.SoundId = "rbxassetid://6042053626";
   beep.Parent = game:GetService("CoreGui");
   beep:Play();
   beep.Ended:Wait();
   beep:Destroy();
 end)
-
 
 wait(2)
+----------------------------------------------------------------------------------------------------------------------
+-- Notification Pour Contacter En Cas De Problème Avec Le Script...
 
-game:GetService("StarterGui"):SetCore("SendNotification",{
-  Title = "Version V6", 
-  Text = "ESP V6 Loaded", 
-  Icon = "rbxassetid://18940557702",
-  Duration = 15
-})
-
--- Code pour le Bruit de ouverture du Gui...
-
-task.spawn(function()
-  local beep = Instance.new("Sound");
-  beep.Volume = 1; -- de 0 à 1, vous pouvez en faire plus mais ce sera bruyant
-  beep.SoundId = "rbxassetid://6042053626";
-  beep.Parent = game:GetService("CoreGui");
-  beep:Play();
-  beep.Ended:Wait();
-  beep:Destroy();
-end)
-
-
--- Notification pour contacter en cas de problème avec le script.
 loadstring(game:HttpGet("https://pastebin.com/raw/3fnaqNVR"))()
+----------------------------------------------------------------------------------------------------------------------
