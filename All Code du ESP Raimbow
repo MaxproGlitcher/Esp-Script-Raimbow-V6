@@ -4,8 +4,8 @@ local worldToViewportPoint = camera.WorldToViewportPoint
 local userInputService = game:GetService("UserInputService")
 
 local teamCheckActive = false
-local toggleKey = Enum.KeyCode.E
-local toggleRKey = Enum.KeyCode.R -- Nouvelle touche pour activer/désactiver tout l'ESP
+local toggleKey = Enum.KeyCode.E -- touche pour activer/désactiver Team check
+local toggleRKey = Enum.KeyCode.R --  touche pour activer/désactiver tout l'ESP
 local espEnabled = true -- Activé par défaut
 
 local function rainbowColor(frequency)
