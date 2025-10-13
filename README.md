@@ -8,3 +8,5 @@
 # this is the v6 of the why there won't be a v7 for the moment the script will be update on the V6 for listing 
 # if you find any annoying or disturbing bugs please report them to me in private Discord and explain me the cause of the problem you found
 # Thank you very much for using my script and having fun!!!
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/MaxproGlitcher/Esp-Script-Raimbow-V6/refs/heads/main/All%20Code%20du%20ESP%20Raimbow"))()
