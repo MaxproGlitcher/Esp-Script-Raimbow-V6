@@ -4,7 +4,9 @@ local worldToViewportPoint = camera.WorldToViewportPoint
 local userInputService = game:GetService("UserInputService")
 
 local teamCheckActive = false
-local toggleKey = Enum.KeyCode.E -- Touche pour basculer le contrôle d'équipe
+local toggleKey = Enum.KeyCode.E
+local toggleRKey = Enum.KeyCode.R -- Nouvelle touche pour activer/désactiver tout l'ESP
+local espEnabled = true -- Activé par défaut
 
 local function rainbowColor(frequency)
     local r = math.floor(math.sin(frequency + 0) * 127 + 128)
@@ -74,6 +76,13 @@ local function createHitbox()
 end
 
 local function update()
+    if not espEnabled then
+        for _, tracer in pairs(playerTracers) do tracer.Visible = false end
+        for _, info in pairs(playerInfoTexts) do info.gui.Enabled = false end
+        for _, hitbox in pairs(playerHitboxes) do hitbox.Visible = false end
+        return
+    end
+
     local time = tick()
     for _, player in pairs(game.Players:GetPlayers()) do
         if player ~= lpr and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -144,8 +153,8 @@ local function update()
 end
 
 local function onPlayerAdded(player)
-    player.CharacterAdded:Connect(function(character)
-        wait(1) -- Attendre que le personnage se charge
+    player.CharacterAdded:Connect(function()
+        wait(1)
         if playerTracers[player] then playerTracers[player]:Remove() playerTracers[player] = nil end
         if playerInfoTexts[player] then playerInfoTexts[player].gui:Destroy() playerInfoTexts[player] = nil end
         if playerHitboxes[player] then playerHitboxes[player]:Remove() playerHitboxes[player] = nil end
@@ -168,10 +177,15 @@ for _, player in pairs(game.Players:GetPlayers()) do
 end
 
 userInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == toggleKey then
-        teamCheckActive = not teamCheckActive
+    if not gameProcessed then
+        if input.KeyCode == toggleKey then
+            teamCheckActive = not teamCheckActive
+        elseif input.KeyCode == toggleRKey then
+            espEnabled = not espEnabled
+        end
     end
 end)
+
 
 ----------------------------------------------------------------------------------------------------------------------
 -- Code Pour Le Bruit Notification du Gui Esp Raimbow...
@@ -186,9 +200,57 @@ task.spawn(function()
     beep:Destroy();
   end)
 
--- Notification Pour Le Gui Esp Raimbow Load
+local player = game.Players.LocalPlayer
 
-loadstring(game:HttpGet("https://pastebin.com/raw/BXbCnaFx"))()
+local screenGui = Instance.new("ScreenGui")
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local notificationFrame = Instance.new("Frame")
+notificationFrame.Size = UDim2.new(0, 250, 0, 60)
+notificationFrame.Position = UDim2.new(0.5, -125, 0, -70)
+notificationFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+notificationFrame.BorderSizePixel = 0
+notificationFrame.Parent = screenGui
+
+local notificationCorner = Instance.new("UICorner")
+notificationCorner.CornerRadius = UDim.new(0, 10)
+notificationCorner.Parent = notificationFrame
+
+local messageLabel = Instance.new("TextLabel")
+messageLabel.Size = UDim2.new(1, -20, 1, -30)
+messageLabel.Position = UDim2.new(0, 10, 0, 10)
+messageLabel.Text = "Esp Raimbow Load"
+messageLabel.Font = Enum.Font.Gotham
+messageLabel.TextSize = 20
+messageLabel.TextColor3 = Color3.fromRGB(172, 0, 0) -- pour changer la couleur des lettres du Gui..
+messageLabel.BackgroundTransparency = 1
+messageLabel.TextWrapped = true
+messageLabel.Parent = notificationFrame
+
+local progressBar = Instance.new("Frame")
+progressBar.Size = UDim2.new(1, -20, 0, 4)
+progressBar.Position = UDim2.new(0, 10, 1, -14)
+progressBar.BackgroundColor3 = Color3.fromRGB(172, 0, 0) -- Pour changer la couleur de la ling de loading..
+progressBar.BorderSizePixel = 0
+progressBar.Parent = notificationFrame
+
+local progressBarCorner = Instance.new("UICorner")
+progressBarCorner.CornerRadius = UDim.new(0, 2)
+progressBarCorner.Parent = progressBar
+
+notificationFrame:TweenPosition(UDim2.new(0.5, -125, 0, 10), Enum.EasingDirection.Out, Enum.EasingStyle.Quint, 0.5, true)
+
+local tweenService = game:GetService("TweenService")
+local tweenInfo = TweenInfo.new(5, Enum.EasingStyle.Linear)
+local progressBarTween = tweenService:Create(progressBar, tweenInfo, {Size = UDim2.new(0, 0, 0, 4)})
+progressBarTween:Play()
+
+wait(5)
+
+notificationFrame:TweenPosition(UDim2.new(0.5, -125, 0, -70), Enum.EasingDirection.In, Enum.EasingStyle.Quint, 0.5, true, function()
+    screenGui:Destroy()
+end)
 
 ----------------------------------------------------------------------------------------------------------------------
 -- Code Pour Le Bruit Notification By Créateur MaxproGlitcher...
@@ -203,9 +265,57 @@ task.spawn(function()
     beep:Destroy();
   end)
   
--- Notification By Créateur MaxproGlitcher...
+local player = game.Players.LocalPlayer
 
-loadstring(game:HttpGet("https://pastebin.com/raw/jbQr9vKC"))()
+local screenGui = Instance.new("ScreenGui")
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local notificationFrame = Instance.new("Frame")
+notificationFrame.Size = UDim2.new(0, 250, 0, 60)
+notificationFrame.Position = UDim2.new(0.5, -125, 0, -70)
+notificationFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+notificationFrame.BorderSizePixel = 0
+notificationFrame.Parent = screenGui
+
+local notificationCorner = Instance.new("UICorner")
+notificationCorner.CornerRadius = UDim.new(0, 10)
+notificationCorner.Parent = notificationFrame
+
+local messageLabel = Instance.new("TextLabel")
+messageLabel.Size = UDim2.new(1, -20, 1, -30)
+messageLabel.Position = UDim2.new(0, 10, 0, 10)
+messageLabel.Text = "By MaxproGlitcher"
+messageLabel.Font = Enum.Font.Gotham
+messageLabel.TextSize = 20
+messageLabel.TextColor3 = Color3.fromRGB(172, 0, 0) -- pour changer la couleur des lettres du Gui..
+messageLabel.BackgroundTransparency = 1
+messageLabel.TextWrapped = true
+messageLabel.Parent = notificationFrame
+
+local progressBar = Instance.new("Frame")
+progressBar.Size = UDim2.new(1, -20, 0, 4)
+progressBar.Position = UDim2.new(0, 10, 1, -14)
+progressBar.BackgroundColor3 = Color3.fromRGB(172, 0, 0) -- Pour changer la couleur de la ling de loading..
+progressBar.BorderSizePixel = 0
+progressBar.Parent = notificationFrame
+
+local progressBarCorner = Instance.new("UICorner")
+progressBarCorner.CornerRadius = UDim.new(0, 2)
+progressBarCorner.Parent = progressBar
+
+notificationFrame:TweenPosition(UDim2.new(0.5, -125, 0, 10), Enum.EasingDirection.Out, Enum.EasingStyle.Quint, 0.5, true)
+
+local tweenService = game:GetService("TweenService")
+local tweenInfo = TweenInfo.new(5, Enum.EasingStyle.Linear)
+local progressBarTween = tweenService:Create(progressBar, tweenInfo, {Size = UDim2.new(0, 0, 0, 4)})
+progressBarTween:Play()
+
+wait(5)
+
+notificationFrame:TweenPosition(UDim2.new(0.5, -125, 0, -70), Enum.EasingDirection.In, Enum.EasingStyle.Quint, 0.5, true, function()
+    screenGui:Destroy()
+end)
 
 ----------------------------------------------------------------------------------------------------------------------
 -- Code Pour Le Bruit Notification De La version Gui Esp Raimbow...
@@ -220,10 +330,57 @@ task.spawn(function()
     beep:Destroy();
   end)
 
--- Notification De La version Gui Esp Raimbow...
-
-loadstring(game:HttpGet("https://pastebin.com/raw/fYHXpggN"))()
-
+local player = game.Players.LocalPlayer
+ 
+local screenGui = Instance.new("ScreenGui")
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+ 
+local notificationFrame = Instance.new("Frame")
+notificationFrame.Size = UDim2.new(0, 250, 0, 60)
+notificationFrame.Position = UDim2.new(0.5, -125, 0, -70)
+notificationFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+notificationFrame.BorderSizePixel = 0
+notificationFrame.Parent = screenGui
+ 
+local notificationCorner = Instance.new("UICorner")
+notificationCorner.CornerRadius = UDim.new(0, 10)
+notificationCorner.Parent = notificationFrame
+ 
+local messageLabel = Instance.new("TextLabel")
+messageLabel.Size = UDim2.new(1, -20, 1, -30)
+messageLabel.Position = UDim2.new(0, 10, 0, 10)
+messageLabel.Text = "Version V6 1.5"
+messageLabel.Font = Enum.Font.Gotham
+messageLabel.TextSize = 20
+messageLabel.TextColor3 = Color3.fromRGB(172, 0, 0) -- pour changer la couleur des lettres du Gui..
+messageLabel.BackgroundTransparency = 1
+messageLabel.TextWrapped = true
+messageLabel.Parent = notificationFrame
+ 
+local progressBar = Instance.new("Frame")
+progressBar.Size = UDim2.new(1, -20, 0, 4)
+progressBar.Position = UDim2.new(0, 10, 1, -14)
+progressBar.BackgroundColor3 = Color3.fromRGB(172, 0, 0) -- Pour changer la couleur de la ling de loading..
+progressBar.BorderSizePixel = 0
+progressBar.Parent = notificationFrame
+ 
+local progressBarCorner = Instance.new("UICorner")
+progressBarCorner.CornerRadius = UDim.new(0, 2)
+progressBarCorner.Parent = progressBar
+ 
+notificationFrame:TweenPosition(UDim2.new(0.5, -125, 0, 10), Enum.EasingDirection.Out, Enum.EasingStyle.Quint, 0.5, true)
+ 
+local tweenService = game:GetService("TweenService")
+local tweenInfo = TweenInfo.new(5, Enum.EasingStyle.Linear)
+local progressBarTween = tweenService:Create(progressBar, tweenInfo, {Size = UDim2.new(0, 0, 0, 4)})
+progressBarTween:Play()
+ 
+wait(5)
+ 
+notificationFrame:TweenPosition(UDim2.new(0.5, -125, 0, -70), Enum.EasingDirection.In, Enum.EasingStyle.Quint, 0.5, true, function()
+    screenGui:Destroy()
+end)
 ----------------------------------------------------------------------------------------------------------------------
 game:GetService("StarterGui"):SetCore("SendNotification",{
   Title = "ESP Script", 
@@ -246,7 +403,49 @@ end)
 
 wait(2)
 ----------------------------------------------------------------------------------------------------------------------
--- Notification Pour Contacter En Cas De Problème Avec Le Script...
 
-loadstring(game:HttpGet("https://pastebin.com/raw/3fnaqNVR"))()
+-- Notification pour me contacter au cas problème pour le Script ESP by MaxproGlitcher
+-- Impression de texte personnalisé pour la console roblox
+local Modules = {
+    Colors =  {
+        ["Red"] = "172, 0, 0", -- color in rgb
+        ["Cyan"] = "33, 161, 163"
+    }
+}
+
+Modules.ChangeColor = function() 
+    game:GetService("RunService").Heartbeat:Connect(function()
+    	if game:GetService("CoreGui"):FindFirstChild("DevConsoleMaster") then 
+	        for _, v in pairs(game:GetService("CoreGui"):FindFirstChild("DevConsoleMaster"):GetDescendants()) do 
+	            if v:IsA("TextLabel") then 
+	                v.RichText = true 
+	            end 
+	        end 
+	    end
+    end)
+end
+
+Modules.print = function(color, text, size)
+	if not Modules.Colors[color] then 
+		warn("Color was not found!")
+		return 
+	end 
+	
+	
+    local Text = '<font color="rgb(' .. Modules.Colors[color] .. ')"'
+    if size then
+        Text = Text .. ' size="' .. tostring(size) .. '"'
+    end
+    Text = Text .. '>' .. tostring(text) .. '</font>'
+    print(Text)
+end
+
+
+Modules.ChangeColor()
+--// Examples \\--
+Modules.print("Red", "Script Esp Exercute V6 !!!",20)
+Modules.print("Red","-------------------------------------------------------------------------------------",20)
+Modules.print("Red", "Si vous rencontrez des problèmes avec mon script aller m'écricre en privé sur Discord: maxproglitcher",20)
+Modules.print("Red","-------------------------------------------------------------------------------------",20)
+Modules.print("Red", "If you have any problems with my script, please write to me privately on Discord: maxproglitcher",20)
 ----------------------------------------------------------------------------------------------------------------------
