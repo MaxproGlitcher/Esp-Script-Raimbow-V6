@@ -1,187 +1,243 @@
--- // Rainbow ESP V7 - Modern Sidebar UI (Style Cvtbot) \\ --
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
+local lpr = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
 
-local ESP = {
-    Enabled = true, Tracers = true, Boxes = true, Info = true, Rainbow = true,
-    TeamMode = "Enemies",
-    TracerThickness = 2, BoxMultiplier = 1.3, BillboardOffset = 4,
-}
+local espEnabled = true
+local teamCheckActive = false
+local skeletonEnabled = true
+local healthBarEnabled = true
 
--- ==================== GUI PRINCIPAL ====================
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = LocalPlayer.PlayerGui
+local toggleE = Enum.KeyCode.E
+local toggleR = Enum.KeyCode.R
+local toggleT = Enum.KeyCode.T
+local toggleY = Enum.KeyCode.Y
 
-local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 780, 0, 520)
-Main.Position = UDim2.new(0.5, -390, 0.5, -260)
-Main.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-Main.BorderSizePixel = 0
-Main.Parent = ScreenGui
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
+local playerTracers = {}
+local playerInfoTexts = {}
+local playerHitboxes = {}
+local playerSkeletons = {}
+local playerHealthBars = {}
 
--- Drag
-local dragging, dragStart, startPos
-Main.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = Main.Position
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local delta = input.Position - dragStart
-        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-UserInputService.InputEnded:Connect(function() dragging = false end)
+local function rainbowColor()
+    local t = tick() * 8
+    return Color3.fromRGB(
+        math.floor(math.sin(t) * 127 + 128),
+        math.floor(math.sin(t + 2) * 127 + 128),
+        math.floor(math.sin(t + 4) * 127 + 128)
+    )
+end
 
--- Sidebar
-local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0, 180, 1, 0)
-Sidebar.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
-Sidebar.Parent = Main
-Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 12)
-
-local Logo = Instance.new("TextLabel")
-Logo.Size = UDim2.new(1, 0, 0, 70)
-Logo.BackgroundTransparency = 1
-Logo.Text = "RAINBOW ESP"
-Logo.TextColor3 = Color3.fromRGB(180, 60, 255)
-Logo.TextScaled = true
-Logo.Font = Enum.Font.GothamBold
-Logo.Parent = Sidebar
-
--- Navigation Buttons
-local tabs = {}
-local currentTab = "Visuals"
-
-local function createNavButton(name, yOffset)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -20, 0, 50)
-    btn.Position = UDim2.new(0, 10, 0, yOffset)
-    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-    btn.Text = name
-    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    btn.Font = Enum.Font.GothamSemibold
-    btn.TextSize = 16
-    btn.Parent = Sidebar
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
-
-    btn.MouseButton1Click:Connect(function()
-        currentTab = name
-        for _, tab in pairs(tabs) do tab.Visible = false end
-        if tabs[name] then tabs[name].Visible = true end
-
-        for _, b in pairs(Sidebar:GetChildren()) do
-            if b:IsA("TextButton") then
-                b.BackgroundColor3 = (b.Text == name) and Color3.fromRGB(140, 60, 255) or Color3.fromRGB(30, 30, 40)
+local function getCharacterParts(character)
+    if not character then return end
+    local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
+    local head = character:FindFirstChild("Head")
+    if not head then
+        for _, v in ipairs(character:GetChildren()) do
+            if v:IsA("BasePart") and v.Name:lower():find("head") then 
+                head = v 
+                break 
             end
         end
-    end)
-    return btn
+    end
+    return root, head, character:FindFirstChildOfClass("Humanoid")
 end
 
-createNavButton("Visuals", 90)
-createNavButton("Settings", 150)
-createNavButton("Team", 210)
+local function createHealthBar()
+    local barBG = Drawing.new("Square")
+    local barFG = Drawing.new("Square")
+    barBG.Thickness = 1
+    barBG.Filled = true
+    barBG.Color = Color3.new(0, 0, 0)
+    barBG.Transparency = 0.5
+    
+    barFG.Thickness = 1
+    barFG.Filled = true
+    barFG.Transparency = 1
+    return {bg = barBG, fg = barFG}
+end
 
--- Content Frame
-local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, -200, 1, -20)
-Content.Position = UDim2.new(0, 190, 0, 10)
-Content.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
-Content.Parent = Main
-Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 12)
+local function updateHealthBar(character, healthBar, humanoid, headPos, onScreen)
+    if not healthBarEnabled or not onScreen then
+        healthBar.bg.Visible = false
+        healthBar.fg.Visible = false
+        return
+    end
 
--- Visuals Tab
-local VisualsTab = Instance.new("ScrollingFrame")
-VisualsTab.Size = UDim2.new(1, -20, 1, -20)
-VisualsTab.Position = UDim2.new(0, 10, 0, 10)
-VisualsTab.BackgroundTransparency = 1
-VisualsTab.ScrollBarThickness = 6
-VisualsTab.Parent = Content
-tabs.Visuals = VisualsTab
+    local health = humanoid and humanoid.Health or 100
+    local maxHealth = humanoid and humanoid.MaxHealth or 100
+    local percent = health / maxHealth
 
-local list = Instance.new("UIListLayout", VisualsTab)
-list.Padding = UDim.new(0, 12)
+    local barWidth = 4
+    local barHeight = 30
+    local x = headPos.X - barWidth/2 - 20
+    local y = headPos.Y - barHeight/2
 
-local function AddToggle(parent, name, default, callback)
-    local f = Instance.new("Frame")
-    f.Size = UDim2.new(1, -10, 0, 60)
-    f.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
-    f.Parent = parent
-    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 10)
+    healthBar.bg.Size = Vector2.new(barWidth, barHeight)
+    healthBar.bg.Position = Vector2.new(x, y)
+    healthBar.bg.Visible = true
 
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(0.7, 0, 1, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = name
-    lbl.TextColor3 = Color3.fromRGB(255,255,255)
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.TextSize = 17
-    lbl.Font = Enum.Font.GothamSemibold
-    lbl.Parent = f
+    healthBar.fg.Size = Vector2.new(barWidth, barHeight * percent)
+    healthBar.fg.Position = Vector2.new(x, y + barHeight * (1 - percent))
+    healthBar.fg.Color = rainbowColor()
+    healthBar.fg.Visible = true
+end
 
-    local switch = Instance.new("Frame")
-    switch.Size = UDim2.new(0, 70, 0, 34)
-    switch.Position = UDim2.new(1, -85, 0.5, -17)
-    switch.BackgroundColor3 = default and Color3.fromRGB(140, 60, 255) or Color3.fromRGB(60, 60, 70)
-    switch.Parent = f
-    Instance.new("UICorner", switch).CornerRadius = UDim.new(1, 0)
+local function createSkeleton()
+    local skel = {}
+    for i = 1, 12 do
+        local line = Drawing.new("Line")
+        line.Thickness = 2
+        line.Transparency = 1
+        table.insert(skel, line)
+    end
+    return skel
+end
 
-    local circle = Instance.new("Frame")
-    circle.Size = UDim2.new(0, 28, 0, 28)
-    circle.Position = UDim2.new(0, default and 38 or 4, 0.5, -14)
-    circle.BackgroundColor3 = Color3.fromRGB(255,255,255)
-    circle.Parent = switch
-    Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
+local function updateSkeleton(character, skeleton)
+    if not skeletonEnabled then
+        for _, l in ipairs(skeleton) do l.Visible = false end
+        return
+    end
 
-    local state = default
-    f.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then
-            state = not state
-            callback(state)
-            TweenService:Create(switch, TweenInfo.new(0.25), {BackgroundColor3 = state and Color3.fromRGB(140, 60, 255) or Color3.fromRGB(60,60,70)}):Play()
-            TweenService:Create(circle, TweenInfo.new(0.25), {Position = UDim2.new(0, state and 38 or 4, 0.5, -14)}):Play()
+    local root, head = getCharacterParts(character)
+    if not root or not head then return end
+
+    local parts = {
+        Head = head,
+        UpperTorso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso"),
+        LowerTorso = character:FindFirstChild("LowerTorso") or character:FindFirstChild("Torso"),
+        LeftUpperArm = character:FindFirstChild("LeftUpperArm") or character:FindFirstChild("Left Arm"),
+        RightUpperArm = character:FindFirstChild("RightUpperArm") or character:FindFirstChild("Right Arm"),
+        LeftUpperLeg = character:FindFirstChild("LeftUpperLeg") or character:FindFirstChild("Left Leg"),
+        RightUpperLeg = character:FindFirstChild("RightUpperLeg") or character:FindFirstChild("Right Leg"),
+    }
+
+    local color = rainbowColor()
+    local connections = {
+        {parts.Head, parts.UpperTorso},
+        {parts.UpperTorso, parts.LowerTorso},
+        {parts.UpperTorso, parts.LeftUpperArm},
+        {parts.UpperTorso, parts.RightUpperArm},
+        {parts.LowerTorso, parts.LeftUpperLeg},
+        {parts.LowerTorso, parts.RightUpperLeg},
+    }
+
+    local i = 1
+    for _, conn in ipairs(connections) do
+        local p1, p2 = conn[1], conn[2]
+        if p1 and p2 then
+            local pos1 = camera:WorldToViewportPoint(p1.Position)
+            local pos2 = camera:WorldToViewportPoint(p2.Position)
+            local line = skeleton[i]
+            if pos1.Z > 0 and pos2.Z > 0 then
+                line.From = Vector2.new(pos1.X, pos1.Y)
+                line.To = Vector2.new(pos2.X, pos2.Y)
+                line.Color = color
+                line.Visible = true
+            else
+                line.Visible = false
+            end
+            i += 1
         end
-    end)
+    end
 end
 
-local function AddSlider(parent, name, min, max, def, callback)
-    -- (Même logique slider améliorée)
-    -- Je te mets seulement les toggles pour l'instant, dis-moi si tu veux les sliders aussi.
+local function updateESP()
+    if not espEnabled then
+        for _, v in pairs(playerTracers) do v.Visible = false end
+        for _, v in pairs(playerInfoTexts) do if v.gui then v.gui.Enabled = false end end
+        for _, v in pairs(playerHitboxes) do v.Visible = false end
+        for _, v in pairs(playerSkeletons) do 
+            for _, l in ipairs(v) do l.Visible = false end 
+        end
+        for _, v in pairs(playerHealthBars) do 
+            v.bg.Visible = false 
+            v.fg.Visible = false 
+        end
+        return
+    end
+
+    local myRoot = lpr.Character and (lpr.Character:FindFirstChild("HumanoidRootPart") or lpr.Character.PrimaryPart)
+    if not myRoot then return end
+
+    for _, character in ipairs(Workspace:GetChildren()) do
+        if character:IsA("Model") and character ~= lpr.Character then
+            local root, head, humanoid = getCharacterParts(character)
+            if not root or not head then continue end
+
+            if teamCheckActive then
+                local plr = Players:GetPlayerFromCharacter(character)
+                if plr and plr.Team == lpr.Team then continue end
+            end
+
+            local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)
+            local headPos, headOnScreen = camera:WorldToViewportPoint(head.Position)
+
+            if not playerTracers[character] then 
+                playerTracers[character] = Drawing.new("Line") 
+                playerTracers[character].Thickness = 2 
+            end
+            if not playerHitboxes[character] then 
+                playerHitboxes[character] = Drawing.new("Square")
+                playerHitboxes[character].Thickness = 2 
+            end
+            if not playerSkeletons[character] then 
+                playerSkeletons[character] = createSkeleton() 
+            end
+            if not playerHealthBars[character] then 
+                playerHealthBars[character] = createHealthBar() 
+            end
+
+            local tracer = playerTracers[character]
+            local hitbox = playerHitboxes[character]
+
+            if onScreen then
+                tracer.From = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y)
+                tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+                tracer.Color = rainbowColor()
+                tracer.Visible = true
+
+                if headOnScreen then
+                    local size = (headPos - screenPos).Magnitude * 2.4
+                    hitbox.Size = Vector2.new(size, size * 2.8)
+                    hitbox.Position = Vector2.new(screenPos.X - size/2, screenPos.Y - size*1.4)
+                    hitbox.Color = rainbowColor()
+                    hitbox.Visible = true
+
+                    updateHealthBar(character, playerHealthBars[character], humanoid, headPos, true)
+                else
+                    hitbox.Visible = false
+                    playerHealthBars[character].bg.Visible = false
+                    playerHealthBars[character].fg.Visible = false
+                end
+
+                updateSkeleton(character, playerSkeletons[character])
+            else
+                tracer.Visible = false
+                hitbox.Visible = false
+                for _, l in ipairs(playerSkeletons[character]) do l.Visible = false end
+                playerHealthBars[character].bg.Visible = false
+                playerHealthBars[character].fg.Visible = false
+            end
+        end
+    end
 end
 
--- Ajout des toggles
-AddToggle(VisualsTab, "ESP Activé", true, function(v) ESP.Enabled = v end)
-AddToggle(VisualsTab, "Tracers", true, function(v) ESP.Tracers = v end)
-AddToggle(VisualsTab, "Boxes", true, function(v) ESP.Boxes = v end)
-AddToggle(VisualsTab, "Player Info", true, function(v) ESP.Info = v end)
-AddToggle(VisualsTab, "Rainbow Effect", true, function(v) ESP.Rainbow = v end)
-
--- Team Tab (à compléter)
-tabs.Team = Instance.new("Frame")
-tabs.Team.Size = UDim2.new(1,0,1,0)
-tabs.Team.BackgroundTransparency = 1
-tabs.Team.Visible = false
-tabs.Team.Parent = Content
-
--- ==================== ESP LOGIC (identique à avant) ====================
--- ... (le code updateESP reste le même que dans le message précédent)
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == toggleE then
+        teamCheckActive = not teamCheckActive
+    elseif input.KeyCode == toggleR then
+        espEnabled = not espEnabled
+    elseif input.KeyCode == toggleT then
+        skeletonEnabled = not skeletonEnabled
+    elseif input.KeyCode == toggleY then
+        healthBarEnabled = not healthBarEnabled
+    end
+end)
 
 RunService.RenderStepped:Connect(updateESP)
-
-game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Rainbow ESP V7",
-    Text = "Interface moderne chargée",
-    Duration = 6
-})
