@@ -1,12 +1,22 @@
-local lpr = game.Players.LocalPlayer
-local camera = game:GetService("Workspace").CurrentCamera
-local worldToViewportPoint = camera.WorldToViewportPoint
-local userInputService = game:GetService("UserInputService")
 
-local teamCheckActive = false
-local toggleKey = Enum.KeyCode.E -- touche pour activer/désactiver Team check
-local toggleRKey = Enum.KeyCode.R --  touche pour activer/désactiver tout l'ESP
-local espEnabled = true -- Activé par défaut
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local lpr = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
+local worldToViewportPoint = camera.WorldToViewportPoint
+
+local teamMode = 0
+local toggleKey = Enum.KeyCode.E
+local toggleRKey = Enum.KeyCode.R
+local toggleHealthBarKey = Enum.KeyCode.T
+local toggleXRayKey = Enum.KeyCode.Y     
+
+local espEnabled = true
+local healthBarEnabled = true
+local xrayEnabled = false
 
 local function rainbowColor(frequency)
     local r = math.floor(math.sin(frequency + 0) * 127 + 128)
@@ -18,6 +28,30 @@ end
 local playerTracers = {}
 local playerInfoTexts = {}
 local playerHitboxes = {}
+local playerHealthBars = {}
+
+local function getTeamModeText()
+    if teamMode == 1 then return "Ennemis seulement"
+    elseif teamMode == 2 then return "Équipe seulement"
+    else return "Tout le monde" end
+end
+
+
+local function applyXRay()
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v:IsA("BasePart") then
+            local character = v.Parent
+            if character and character:FindFirstChildWhichIsA("Humanoid") then
+                -- Ne pas appliquer sur les personnages
+            elseif character and character.Parent and character.Parent:FindFirstChildWhichIsA("Humanoid") then
+                -- Ne pas appliquer sur les personnages
+            else
+                v.LocalTransparencyModifier = xrayEnabled and 0.7 or 0
+            end
+        end
+    end
+end
+
 
 local function createBillboardGui(player)
     local billboardGui = Instance.new("BillboardGui")
@@ -52,20 +86,60 @@ local function createBillboardGui(player)
     return billboardGui, nameLabel, distanceLabel, healthLabel
 end
 
+local function createHealthBar()
+    local bg = Drawing.new("Square")
+    local bar = Drawing.new("Square")
+    
+    bg.Thickness = 1
+    bg.Filled = true
+    bg.Color = Color3.fromRGB(0, 0, 0)
+    bg.Transparency = 0.5
+    
+    bar.Thickness = 1
+    bar.Filled = true
+    bar.Transparency = 1
+    
+    return {bg = bg, bar = bar}
+end
+
 local function updatePlayerInfo(player, distanceLabel, healthLabel, time)
     local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-    if rootPart then
-        local distance = (rootPart.Position - lpr.Character.HumanoidRootPart.Position).magnitude
+    if rootPart and lpr.Character and lpr.Character:FindFirstChild("HumanoidRootPart") then
+        local distance = (rootPart.Position - lpr.Character.HumanoidRootPart.Position).Magnitude
         distanceLabel.Text = string.format("Distance : %.2f", distance)
         distanceLabel.TextColor3 = rainbowColor(time + player.UserId)
     end
 
     local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
     if humanoid then
-        local health = humanoid.Health
-        healthLabel.Text = string.format("Santé : %.0f", health)
+        healthLabel.Text = string.format("Santé : %.0f", humanoid.Health)
         healthLabel.TextColor3 = rainbowColor(time + player.UserId)
     end
+end
+
+local function updateHealthBar(player, healthBar, headPos, headOnScreen, time)
+    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+    if not humanoid or not headOnScreen then
+        healthBar.bg.Visible = false
+        healthBar.bar.Visible = false
+        return
+    end
+
+    local healthPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+    local barWidth = 60
+    local barHeight = 6
+    local offsetY = -25
+
+    local screenPos = Vector2.new(headPos.X, headPos.Y + offsetY)
+
+    healthBar.bg.Size = Vector2.new(barWidth, barHeight)
+    healthBar.bg.Position = Vector2.new(screenPos.X - barWidth/2, screenPos.Y)
+    healthBar.bg.Visible = true
+
+    healthBar.bar.Size = Vector2.new(barWidth * healthPercent, barHeight)
+    healthBar.bar.Position = Vector2.new(screenPos.X - barWidth/2, screenPos.Y)
+    healthBar.bar.Color = rainbowColor(time + player.UserId)
+    healthBar.bar.Visible = true
 end
 
 local function createHitbox()
@@ -75,44 +149,56 @@ local function createHitbox()
     return hitbox
 end
 
+local function shouldShowPlayer(player)
+    if teamMode == 0 then return true end
+    if teamMode == 1 then return player.Team ~= lpr.Team end
+    if teamMode == 2 then return player.Team == lpr.Team end
+    return true
+end
+
 local function update()
-    if not espEnabled then
-        for _, tracer in pairs(playerTracers) do tracer.Visible = false end
-        for _, info in pairs(playerInfoTexts) do info.gui.Enabled = false end
-        for _, hitbox in pairs(playerHitboxes) do hitbox.Visible = false end
+    if not espEnabled or not lpr.Character or not lpr.Character:FindFirstChild("HumanoidRootPart") then
+        for _, v in pairs(playerTracers) do v.Visible = false end
+        for _, v in pairs(playerInfoTexts) do v.gui.Enabled = false end
+        for _, v in pairs(playerHitboxes) do v.Visible = false end
+        for _, v in pairs(playerHealthBars) do 
+            v.bg.Visible = false 
+            v.bar.Visible = false 
+        end
         return
     end
 
     local time = tick()
-    for _, player in pairs(game.Players:GetPlayers()) do
+    for _, player in pairs(Players:GetPlayers()) do
         if player ~= lpr and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            -- (Le reste du code ESP reste identique)
             local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
             local head = player.Character:FindFirstChild("Head")
             local screenPos, onScreen = worldToViewportPoint(camera, rootPart.Position)
             local headPos, headOnScreen = worldToViewportPoint(camera, head.Position)
 
-            if teamCheckActive and player.Team == lpr.Team then
+            if not shouldShowPlayer(player) then
                 if playerTracers[player] then playerTracers[player].Visible = false end
                 if playerInfoTexts[player] then playerInfoTexts[player].gui.Enabled = false end
                 if playerHitboxes[player] then playerHitboxes[player].Visible = false end
+                if playerHealthBars[player] then
+                    playerHealthBars[player].bg.Visible = false
+                    playerHealthBars[player].bar.Visible = false
+                end
             else
-                if not playerTracers[player] then
-                    playerTracers[player] = Drawing.new("Line")
-                end
+                if not playerTracers[player] then playerTracers[player] = Drawing.new("Line") end
                 if not playerInfoTexts[player] then
-                    local billboardGui, nameLabel, distanceLabel, healthLabel = createBillboardGui(player)
-                    billboardGui.Parent = player.Character:WaitForChild("HumanoidRootPart")
-                    playerInfoTexts[player] = { gui = billboardGui, name = nameLabel, distance = distanceLabel, health = healthLabel }
+                    local bg, name, dist, hp = createBillboardGui(player)
+                    bg.Parent = player.Character:WaitForChild("HumanoidRootPart")
+                    playerInfoTexts[player] = { gui = bg, name = name, distance = dist, health = hp }
                 end
-                if not playerHitboxes[player] then
-                    playerHitboxes[player] = createHitbox()
-                end
+                if not playerHitboxes[player] then playerHitboxes[player] = createHitbox() end
+                if not playerHealthBars[player] then playerHealthBars[player] = createHealthBar() end
 
                 local tracer = playerTracers[player]
-                local billboardGui = playerInfoTexts[player].gui
-                local distanceLabel = playerInfoTexts[player].distance
-                local healthLabel = playerInfoTexts[player].health
+                local info = playerInfoTexts[player]
                 local hitbox = playerHitboxes[player]
+                local healthBar = playerHealthBars[player]
 
                 if onScreen then
                     tracer.From = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y)
@@ -123,329 +209,91 @@ local function update()
                     tracer.Visible = true
 
                     if headOnScreen then
-                        updatePlayerInfo(player, distanceLabel, healthLabel, time)
-                        billboardGui.Enabled = true
-                        billboardGui.StudsOffset = Vector3.new(0, 3, 0)
-                        local nameLabel = playerInfoTexts[player].name
-                        nameLabel.TextColor3 = rainbowColor(time + player.UserId)
+                        updatePlayerInfo(player, info.distance, info.health, time)
+                        info.gui.Enabled = true
+                        info.gui.StudsOffset = Vector3.new(0, 3, 0)
+                        info.name.TextColor3 = rainbowColor(time + player.UserId)
 
-                        local hitboxSize = (headPos - screenPos).magnitude * 2
+                        local hitboxSize = (headPos - screenPos).Magnitude * 2
                         hitbox.Size = Vector2.new(hitboxSize, hitboxSize * 2.5)
                         hitbox.Position = Vector2.new(screenPos.X - hitboxSize / 2, screenPos.Y - hitboxSize * 1.25)
                         hitbox.Color = rainbowColor(time + player.UserId)
                         hitbox.Visible = true
+
+                        if healthBarEnabled then
+                            updateHealthBar(player, healthBar, headPos, headOnScreen, time)
+                        else
+                            healthBar.bg.Visible = false
+                            healthBar.bar.Visible = false
+                        end
                     else
-                        billboardGui.Enabled = false
+                        info.gui.Enabled = false
                         hitbox.Visible = false
+                        healthBar.bg.Visible = false
+                        healthBar.bar.Visible = false
                     end
                 else
                     tracer.Visible = false
-                    billboardGui.Enabled = false
+                    info.gui.Enabled = false
                     hitbox.Visible = false
+                    healthBar.bg.Visible = false
+                    healthBar.bar.Visible = false
                 end
             end
-        else
-            if playerTracers[player] then playerTracers[player].Visible = false end
-            if playerInfoTexts[player] then playerInfoTexts[player].gui.Enabled = false end
-            if playerHitboxes[player] then playerHitboxes[player].Visible = false end
         end
     end
 end
+
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    if input.KeyCode == toggleKey then
+        teamMode = (teamMode + 1) % 3
+        print("Mode équipe : " .. getTeamModeText())
+    elseif input.KeyCode == toggleRKey then
+        espEnabled = not espEnabled
+    elseif input.KeyCode == toggleHealthBarKey then
+        healthBarEnabled = not healthBarEnabled
+    elseif input.KeyCode == toggleXRayKey then
+        xrayEnabled = not xrayEnabled
+        applyXRay()
+        print("X-Ray : " .. (xrayEnabled and "Activé" or "Désactivé"))
+    end
+end)
+
 
 local function onPlayerAdded(player)
     player.CharacterAdded:Connect(function()
-        wait(1)
+        task.wait(1)
         if playerTracers[player] then playerTracers[player]:Remove() playerTracers[player] = nil end
-        if playerInfoTexts[player] then playerInfoTexts[player].gui:Destroy() playerInfoTexts[player] = nil end
+        if playerInfoTexts[player] then 
+            playerInfoTexts[player].gui:Destroy() 
+            playerInfoTexts[player] = nil 
+        end
         if playerHitboxes[player] then playerHitboxes[player]:Remove() playerHitboxes[player] = nil end
-        update()
+        if playerHealthBars[player] then
+            playerHealthBars[player].bg:Remove()
+            playerHealthBars[player].bar:Remove()
+            playerHealthBars[player] = nil
+        end
     end)
 end
 
-game.Players.PlayerAdded:Connect(onPlayerAdded)
+Players.PlayerAdded:Connect(onPlayerAdded)
+RunService.RenderStepped:Connect(update)
 
-game:GetService("RunService").RenderStepped:Connect(update)
-
-game.Players.PlayerRemoving:Connect(function(player)
+Players.PlayerRemoving:Connect(function(player)
     if playerTracers[player] then playerTracers[player]:Remove() playerTracers[player] = nil end
     if playerInfoTexts[player] then playerInfoTexts[player].gui:Destroy() playerInfoTexts[player] = nil end
     if playerHitboxes[player] then playerHitboxes[player]:Remove() playerHitboxes[player] = nil end
+    if playerHealthBars[player] then
+        playerHealthBars[player].bg:Remove()
+        playerHealthBars[player].bar:Remove()
+        playerHealthBars[player] = nil
+    end
 end)
 
-for _, player in pairs(game.Players:GetPlayers()) do
+for _, player in pairs(Players:GetPlayers()) do
     onPlayerAdded(player)
 end
-
-userInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed then
-        if input.KeyCode == toggleKey then
-            teamCheckActive = not teamCheckActive
-        elseif input.KeyCode == toggleRKey then
-            espEnabled = not espEnabled
-        end
-    end
-end)
-
-
-----------------------------------------------------------------------------------------------------------------------
--- Code Pour Le Bruit Notification du Gui Esp Raimbow...
-
-task.spawn(function()
-    local beep = Instance.new("Sound");
-    beep.Volume = 1; -- De 0 à 1, Vous Pouvez En Faire Plus Mais Ce Sera Bruyant...
-    beep.SoundId = "rbxassetid://6042053626";
-    beep.Parent = game:GetService("CoreGui");
-    beep:Play();
-    beep.Ended:Wait();
-    beep:Destroy();
-  end)
-
-local player = game.Players.LocalPlayer
-
-local screenGui = Instance.new("ScreenGui")
-screenGui.ResetOnSpawn = false
-screenGui.Parent = player:WaitForChild("PlayerGui")
-
-local notificationFrame = Instance.new("Frame")
-notificationFrame.Size = UDim2.new(0, 250, 0, 60)
-notificationFrame.Position = UDim2.new(0.5, -125, 0, -70)
-notificationFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-notificationFrame.BorderSizePixel = 0
-notificationFrame.Parent = screenGui
-
-local notificationCorner = Instance.new("UICorner")
-notificationCorner.CornerRadius = UDim.new(0, 10)
-notificationCorner.Parent = notificationFrame
-
-local messageLabel = Instance.new("TextLabel")
-messageLabel.Size = UDim2.new(1, -20, 1, -30)
-messageLabel.Position = UDim2.new(0, 10, 0, 10)
-messageLabel.Text = "Esp Raimbow Load"
-messageLabel.Font = Enum.Font.Gotham
-messageLabel.TextSize = 20
-messageLabel.TextColor3 = Color3.fromRGB(172, 0, 0) -- pour changer la couleur des lettres du Gui..
-messageLabel.BackgroundTransparency = 1
-messageLabel.TextWrapped = true
-messageLabel.Parent = notificationFrame
-
-local progressBar = Instance.new("Frame")
-progressBar.Size = UDim2.new(1, -20, 0, 4)
-progressBar.Position = UDim2.new(0, 10, 1, -14)
-progressBar.BackgroundColor3 = Color3.fromRGB(172, 0, 0) -- Pour changer la couleur de la ling de loading..
-progressBar.BorderSizePixel = 0
-progressBar.Parent = notificationFrame
-
-local progressBarCorner = Instance.new("UICorner")
-progressBarCorner.CornerRadius = UDim.new(0, 2)
-progressBarCorner.Parent = progressBar
-
-notificationFrame:TweenPosition(UDim2.new(0.5, -125, 0, 10), Enum.EasingDirection.Out, Enum.EasingStyle.Quint, 0.5, true)
-
-local tweenService = game:GetService("TweenService")
-local tweenInfo = TweenInfo.new(5, Enum.EasingStyle.Linear)
-local progressBarTween = tweenService:Create(progressBar, tweenInfo, {Size = UDim2.new(0, 0, 0, 4)})
-progressBarTween:Play()
-
-wait(5)
-
-notificationFrame:TweenPosition(UDim2.new(0.5, -125, 0, -70), Enum.EasingDirection.In, Enum.EasingStyle.Quint, 0.5, true, function()
-    screenGui:Destroy()
-end)
-
-----------------------------------------------------------------------------------------------------------------------
--- Code Pour Le Bruit Notification By Créateur MaxproGlitcher...
-
-task.spawn(function()
-    local beep = Instance.new("Sound");
-    beep.Volume = 1; -- De 0 à 1, Vous Pouvez En Faire Plus Mais Ce Sera Bruyant...
-    beep.SoundId = "rbxassetid://6042053626";
-    beep.Parent = game:GetService("CoreGui");
-    beep:Play();
-    beep.Ended:Wait();
-    beep:Destroy();
-  end)
-  
-local player = game.Players.LocalPlayer
-
-local screenGui = Instance.new("ScreenGui")
-screenGui.ResetOnSpawn = false
-screenGui.Parent = player:WaitForChild("PlayerGui")
-
-local notificationFrame = Instance.new("Frame")
-notificationFrame.Size = UDim2.new(0, 250, 0, 60)
-notificationFrame.Position = UDim2.new(0.5, -125, 0, -70)
-notificationFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-notificationFrame.BorderSizePixel = 0
-notificationFrame.Parent = screenGui
-
-local notificationCorner = Instance.new("UICorner")
-notificationCorner.CornerRadius = UDim.new(0, 10)
-notificationCorner.Parent = notificationFrame
-
-local messageLabel = Instance.new("TextLabel")
-messageLabel.Size = UDim2.new(1, -20, 1, -30)
-messageLabel.Position = UDim2.new(0, 10, 0, 10)
-messageLabel.Text = "By MaxproGlitcher"
-messageLabel.Font = Enum.Font.Gotham
-messageLabel.TextSize = 20
-messageLabel.TextColor3 = Color3.fromRGB(172, 0, 0) -- pour changer la couleur des lettres du Gui..
-messageLabel.BackgroundTransparency = 1
-messageLabel.TextWrapped = true
-messageLabel.Parent = notificationFrame
-
-local progressBar = Instance.new("Frame")
-progressBar.Size = UDim2.new(1, -20, 0, 4)
-progressBar.Position = UDim2.new(0, 10, 1, -14)
-progressBar.BackgroundColor3 = Color3.fromRGB(172, 0, 0) -- Pour changer la couleur de la ling de loading..
-progressBar.BorderSizePixel = 0
-progressBar.Parent = notificationFrame
-
-local progressBarCorner = Instance.new("UICorner")
-progressBarCorner.CornerRadius = UDim.new(0, 2)
-progressBarCorner.Parent = progressBar
-
-notificationFrame:TweenPosition(UDim2.new(0.5, -125, 0, 10), Enum.EasingDirection.Out, Enum.EasingStyle.Quint, 0.5, true)
-
-local tweenService = game:GetService("TweenService")
-local tweenInfo = TweenInfo.new(5, Enum.EasingStyle.Linear)
-local progressBarTween = tweenService:Create(progressBar, tweenInfo, {Size = UDim2.new(0, 0, 0, 4)})
-progressBarTween:Play()
-
-wait(5)
-
-notificationFrame:TweenPosition(UDim2.new(0.5, -125, 0, -70), Enum.EasingDirection.In, Enum.EasingStyle.Quint, 0.5, true, function()
-    screenGui:Destroy()
-end)
-
-----------------------------------------------------------------------------------------------------------------------
--- Code Pour Le Bruit Notification De La version Gui Esp Raimbow...
-
-task.spawn(function()
-    local beep = Instance.new("Sound");
-    beep.Volume = 1; -- De 0 à 1, Vous Pouvez En Faire Plus Mais Ce Sera Bruyant...
-    beep.SoundId = "rbxassetid://6042053626";
-    beep.Parent = game:GetService("CoreGui");
-    beep:Play();
-    beep.Ended:Wait();
-    beep:Destroy();
-  end)
-
-local player = game.Players.LocalPlayer
- 
-local screenGui = Instance.new("ScreenGui")
-screenGui.ResetOnSpawn = false
-screenGui.Parent = player:WaitForChild("PlayerGui")
- 
-local notificationFrame = Instance.new("Frame")
-notificationFrame.Size = UDim2.new(0, 250, 0, 60)
-notificationFrame.Position = UDim2.new(0.5, -125, 0, -70)
-notificationFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-notificationFrame.BorderSizePixel = 0
-notificationFrame.Parent = screenGui
- 
-local notificationCorner = Instance.new("UICorner")
-notificationCorner.CornerRadius = UDim.new(0, 10)
-notificationCorner.Parent = notificationFrame
- 
-local messageLabel = Instance.new("TextLabel")
-messageLabel.Size = UDim2.new(1, -20, 1, -30)
-messageLabel.Position = UDim2.new(0, 10, 0, 10)
-messageLabel.Text = "Version V6 1.5"
-messageLabel.Font = Enum.Font.Gotham
-messageLabel.TextSize = 20
-messageLabel.TextColor3 = Color3.fromRGB(172, 0, 0) -- pour changer la couleur des lettres du Gui..
-messageLabel.BackgroundTransparency = 1
-messageLabel.TextWrapped = true
-messageLabel.Parent = notificationFrame
- 
-local progressBar = Instance.new("Frame")
-progressBar.Size = UDim2.new(1, -20, 0, 4)
-progressBar.Position = UDim2.new(0, 10, 1, -14)
-progressBar.BackgroundColor3 = Color3.fromRGB(172, 0, 0) -- Pour changer la couleur de la ling de loading..
-progressBar.BorderSizePixel = 0
-progressBar.Parent = notificationFrame
- 
-local progressBarCorner = Instance.new("UICorner")
-progressBarCorner.CornerRadius = UDim.new(0, 2)
-progressBarCorner.Parent = progressBar
- 
-notificationFrame:TweenPosition(UDim2.new(0.5, -125, 0, 10), Enum.EasingDirection.Out, Enum.EasingStyle.Quint, 0.5, true)
- 
-local tweenService = game:GetService("TweenService")
-local tweenInfo = TweenInfo.new(5, Enum.EasingStyle.Linear)
-local progressBarTween = tweenService:Create(progressBar, tweenInfo, {Size = UDim2.new(0, 0, 0, 4)})
-progressBarTween:Play()
- 
-wait(5)
- 
-notificationFrame:TweenPosition(UDim2.new(0.5, -125, 0, -70), Enum.EasingDirection.In, Enum.EasingStyle.Quint, 0.5, true, function()
-    screenGui:Destroy()
-end)
-----------------------------------------------------------------------------------------------------------------------
-game:GetService("StarterGui"):SetCore("SendNotification",{
-  Title = "ESP Script", 
-  Text = "Script Executed", 
-  Icon = "rbxassetid://18940322843",
-  Duration = 15
-})
-
--- Code Pour Le Bruit De Ouverture Du Gui...
-
-task.spawn(function()
-  local beep = Instance.new("Sound");
-  beep.Volume = 1; -- De 0 à 1, Vous Pouvez En Faire Plus Mais Ce sera Bruyant...
-  beep.SoundId = "rbxassetid://6042053626";
-  beep.Parent = game:GetService("CoreGui");
-  beep:Play();
-  beep.Ended:Wait();
-  beep:Destroy();
-end)
-
-wait(2)
-----------------------------------------------------------------------------------------------------------------------
-
--- Notification pour me contacter au cas problème pour le Script ESP by MaxproGlitcher
--- Impression de texte personnalisé pour la console roblox
-local Modules = {
-    Colors =  {
-        ["Red"] = "172, 0, 0", -- color in rgb
-        ["Cyan"] = "33, 161, 163"
-    }
-}
-
-Modules.ChangeColor = function() 
-    game:GetService("RunService").Heartbeat:Connect(function()
-    	if game:GetService("CoreGui"):FindFirstChild("DevConsoleMaster") then 
-	        for _, v in pairs(game:GetService("CoreGui"):FindFirstChild("DevConsoleMaster"):GetDescendants()) do 
-	            if v:IsA("TextLabel") then 
-	                v.RichText = true 
-	            end 
-	        end 
-	    end
-    end)
-end
-
-Modules.print = function(color, text, size)
-	if not Modules.Colors[color] then 
-		warn("Color was not found!")
-		return 
-	end 
-	
-	
-    local Text = '<font color="rgb(' .. Modules.Colors[color] .. ')"'
-    if size then
-        Text = Text .. ' size="' .. tostring(size) .. '"'
-    end
-    Text = Text .. '>' .. tostring(text) .. '</font>'
-    print(Text)
-end
-
-
-Modules.ChangeColor()
---// Examples \\--
-Modules.print("Red", "Script Esp Exercute V6 !!!",20)
-Modules.print("Red","-------------------------------------------------------------------------------------",20)
-Modules.print("Red", "Si vous rencontrez des problèmes avec mon script aller m'écricre en privé sur Discord: maxproglitcher",20)
-Modules.print("Red","-------------------------------------------------------------------------------------",20)
-Modules.print("Red", "If you have any problems with my script, please write to me privately on Discord: maxproglitcher",20)
-----------------------------------------------------------------------------------------------------------------------
