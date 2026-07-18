@@ -9,322 +9,177 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 local ESP = {
-    Enabled = true,
-    Tracers = true,
-    Boxes = true,
-    Info = true,
-    Rainbow = true,
-    TeamMode = "Enemies", -- "All", "Enemies", "Allies"
-    TracerThickness = 2,
-    BoxMultiplier = 1.3,
-    BillboardOffset = 4,
+    Enabled = true, Tracers = true, Boxes = true, Info = true, Rainbow = true,
+    TeamMode = "Enemies",
+    TracerThickness = 2, BoxMultiplier = 1.3, BillboardOffset = 4,
 }
-
 
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.Parent = LocalPlayer.PlayerGui
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 360, 0, 520)
-Main.Position = UDim2.new(0.5, -180, 0.5, -260)
-Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Main.Size = UDim2.new(0, 780, 0, 520)
+Main.Position = UDim2.new(0.5, -390, 0.5, -260)
+Main.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 Main.BorderSizePixel = 0
 Main.Parent = ScreenGui
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
 
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 14)
-
-local dragging, dragInput, dragStart, startPos
-local function updateDrag(input)
-	local delta = input.Position - dragStart
-	local pos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
-		startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-	TweenService:Create(mainFrame, TweenInfo.new(0.15), {Position = pos}):Play()
-end
-
-mainFrame.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true
-		dragStart = input.Position
-		startPos = mainFrame.Position
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End then dragging = false end
-		end)
-	end
+-- Drag
+local dragging, dragStart, startPos
+Main.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+    end
 end)
-
-mainFrame.InputChanged:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-		dragInput = input
-	end
-end)
-
 UserInputService.InputChanged:Connect(function(input)
-	if dragging and input == dragInput then updateDrag(input) end
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
 end)
+UserInputService.InputEnded:Connect(function() dragging = false end)
 
--- Top Bar
-local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 60)
-TopBar.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-TopBar.Parent = Main
-Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 14)
+-- Sidebar
+local Sidebar = Instance.new("Frame")
+Sidebar.Size = UDim2.new(0, 180, 1, 0)
+Sidebar.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+Sidebar.Parent = Main
+Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 12)
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -70, 1, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "🌹 RAINBOW ESP V7"
-Title.TextColor3 = Color3.fromRGB(255, 45, 45)
-Title.TextScaled = true
-Title.Font = Enum.Font.GothamBold
-Title.Parent = TopBar
+local Logo = Instance.new("TextLabel")
+Logo.Size = UDim2.new(1, 0, 0, 70)
+Logo.BackgroundTransparency = 1
+Logo.Text = "RAINBOW ESP"
+Logo.TextColor3 = Color3.fromRGB(180, 60, 255)
+Logo.TextScaled = true
+Logo.Font = Enum.Font.GothamBold
+Logo.Parent = Sidebar
 
--- Close
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 50, 0, 50)
-CloseBtn.Position = UDim2.new(1, -55, 0, 5)
-CloseBtn.BackgroundTransparency = 1
-CloseBtn.Text = "✕"
-CloseBtn.TextColor3 = Color3.fromRGB(255, 60, 60)
-CloseBtn.TextScaled = true
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.Parent = TopBar
-CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+-- Navigation Buttons
+local tabs = {}
+local currentTab = "Visuals"
 
--- Scrolling
-local Scrolling = Instance.new("ScrollingFrame")
-Scrolling.Size = UDim2.new(1, -20, 1, -80)
-Scrolling.Position = UDim2.new(0, 10, 0, 70)
-Scrolling.BackgroundTransparency = 1
-Scrolling.ScrollBarThickness = 5
-Scrolling.ScrollBarImageColor3 = Color3.fromRGB(255, 60, 60)
-Scrolling.Parent = Main
-
-local UIList = Instance.new("UIListLayout", Scrolling)
-UIList.Padding = UDim.new(0, 10)
-UIList.SortOrder = Enum.SortOrder.LayoutOrder
-
--- Fonctions UI
-local function AddToggle(name, default, callback)
-    local Toggle = Instance.new("Frame")
-    Toggle.Size = UDim2.new(1, -20, 0, 65)
-    Toggle.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-    Toggle.Parent = Scrolling
-    Instance.new("UICorner", Toggle).CornerRadius = UDim.new(0, 12)
-
-    local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0.65, 0, 1, 0)
-    Label.BackgroundTransparency = 1
-    Label.Text = name
-    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.TextSize = 18
-    Label.Font = Enum.Font.GothamSemibold
-    Label.Parent = Toggle
-
-    local Switch = Instance.new("Frame")
-    Switch.Size = UDim2.new(0, 65, 0, 32)
-    Switch.Position = UDim2.new(1, -80, 0.5, -16)
-    Switch.BackgroundColor3 = default and Color3.fromRGB(220, 40, 40) or Color3.fromRGB(70, 70, 70)
-    Switch.Parent = Toggle
-    Instance.new("UICorner", Switch).CornerRadius = UDim.new(1, 0)
-
-    local Circle = Instance.new("Frame")
-    Circle.Size = UDim2.new(0, 26, 0, 26)
-    Circle.Position = UDim2.new(0, default and 35 or 4, 0.5, -13)
-    Circle.BackgroundColor3 = Color3.fromRGB(255,255,255)
-    Circle.Parent = Switch
-    Instance.new("UICorner", Circle).CornerRadius = UDim.new(1, 0)
-
-    local state = default
-    Toggle.InputBegan:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-            state = not state
-            callback(state)
-            TweenService:Create(Switch, TweenInfo.new(0.3), {BackgroundColor3 = state and Color3.fromRGB(220, 40, 40) or Color3.fromRGB(70, 70, 70)}):Play()
-            TweenService:Create(Circle, TweenInfo.new(0.3), {Position = UDim2.new(0, state and 35 or 4, 0.5, -13)}):Play()
-        end
-    end)
-end
-
-local function AddSlider(name, min, max, default, callback)
-    local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(1, -20, 0, 80)
-    Frame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-    Frame.Parent = Scrolling
-    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 12)
-
-    local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(1, -20, 0, 25)
-    Label.BackgroundTransparency = 1
-    Label.Text = name .. ": <font color='rgb(255,60,60)'>" .. default .. "</font>"
-    Label.TextColor3 = Color3.fromRGB(220, 220, 220)
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.RichText = true
-    Label.TextSize = 17
-    Label.Font = Enum.Font.GothamSemibold
-    Label.Parent = Frame
-
-    local Bar = Instance.new("Frame")
-    Bar.Size = UDim2.new(1, -30, 0, 10)
-    Bar.Position = UDim2.new(0, 15, 0, 50)
-    Bar.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    Bar.Parent = Frame
-    Instance.new("UICorner", Bar).CornerRadius = UDim.new(0, 5)
-
-    local Fill = Instance.new("Frame")
-    Fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0)
-    Fill.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-    Fill.Parent = Bar
-    Instance.new("UICorner", Fill).CornerRadius = UDim.new(0, 5)
-
-    local dragging = false
-    Bar.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end end)
-    UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local percent = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
-            local value = math.floor(min + (max - min) * percent)
-            Fill.Size = UDim2.new(percent, 0, 1, 0)
-            Label.Text = name .. ": <font color='rgb(255,60,60)'>" .. value .. "</font>"
-            callback(value)
-        end
-    end)
-end
-
-
-AddToggle("ESP Activé", true, function(v) ESP.Enabled = v end)
-AddToggle("Tracers", true, function(v) ESP.Tracers = v end)
-AddToggle("Boxes", true, function(v) ESP.Boxes = v end)
-AddToggle("Informations", true, function(v) ESP.Info = v end)
-AddToggle("Rainbow", true, function(v) ESP.Rainbow = v end)
-
--- Team Buttons
-local TeamSection = Instance.new("Frame")
-TeamSection.Size = UDim2.new(1, -20, 0, 140)
-TeamSection.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-TeamSection.Parent = Scrolling
-Instance.new("UICorner", TeamSection).CornerRadius = UDim.new(0, 12)
-
-local modes = {"All", "Enemies", "Allies"}
-for i, mode in ipairs(modes) do
+local function createNavButton(name, yOffset)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -20, 0, 38)
-    btn.Position = UDim2.new(0, 10, 0, 10 + (i-1)*45)
-    btn.BackgroundColor3 = ESP.TeamMode == mode and Color3.fromRGB(200, 40, 40) or Color3.fromRGB(45, 45, 45)
-    btn.Text = mode == "All" and "Tous les Joueurs" or mode == "Enemies" and "Ennemis Seulement" or "Équipe Seulement"
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextSize = 16
+    btn.Size = UDim2.new(1, -20, 0, 50)
+    btn.Position = UDim2.new(0, 10, 0, yOffset)
+    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
     btn.Font = Enum.Font.GothamSemibold
-    btn.Parent = TeamSection
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
+    btn.TextSize = 16
+    btn.Parent = Sidebar
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
 
     btn.MouseButton1Click:Connect(function()
-        ESP.TeamMode = mode
-        for _, b in pairs(TeamSection:GetChildren()) do
+        currentTab = name
+        for _, tab in pairs(tabs) do tab.Visible = false end
+        if tabs[name] then tabs[name].Visible = true end
+
+        for _, b in pairs(Sidebar:GetChildren()) do
             if b:IsA("TextButton") then
-                b.BackgroundColor3 = (b.Text == btn.Text) and Color3.fromRGB(200, 40, 40) or Color3.fromRGB(45, 45, 45)
+                b.BackgroundColor3 = (b.Text == name) and Color3.fromRGB(140, 60, 255) or Color3.fromRGB(30, 30, 40)
             end
+        end
+    end)
+    return btn
+end
+
+createNavButton("Visuals", 90)
+createNavButton("Settings", 150)
+createNavButton("Team", 210)
+
+-- Content Frame
+local Content = Instance.new("Frame")
+Content.Size = UDim2.new(1, -200, 1, -20)
+Content.Position = UDim2.new(0, 190, 0, 10)
+Content.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+Content.Parent = Main
+Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 12)
+
+-- Visuals Tab
+local VisualsTab = Instance.new("ScrollingFrame")
+VisualsTab.Size = UDim2.new(1, -20, 1, -20)
+VisualsTab.Position = UDim2.new(0, 10, 0, 10)
+VisualsTab.BackgroundTransparency = 1
+VisualsTab.ScrollBarThickness = 6
+VisualsTab.Parent = Content
+tabs.Visuals = VisualsTab
+
+local list = Instance.new("UIListLayout", VisualsTab)
+list.Padding = UDim.new(0, 12)
+
+local function AddToggle(parent, name, default, callback)
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1, -10, 0, 60)
+    f.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+    f.Parent = parent
+    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 10)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.7, 0, 1, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = name
+    lbl.TextColor3 = Color3.fromRGB(255,255,255)
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextSize = 17
+    lbl.Font = Enum.Font.GothamSemibold
+    lbl.Parent = f
+
+    local switch = Instance.new("Frame")
+    switch.Size = UDim2.new(0, 70, 0, 34)
+    switch.Position = UDim2.new(1, -85, 0.5, -17)
+    switch.BackgroundColor3 = default and Color3.fromRGB(140, 60, 255) or Color3.fromRGB(60, 60, 70)
+    switch.Parent = f
+    Instance.new("UICorner", switch).CornerRadius = UDim.new(1, 0)
+
+    local circle = Instance.new("Frame")
+    circle.Size = UDim2.new(0, 28, 0, 28)
+    circle.Position = UDim2.new(0, default and 38 or 4, 0.5, -14)
+    circle.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    circle.Parent = switch
+    Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
+
+    local state = default
+    f.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then
+            state = not state
+            callback(state)
+            TweenService:Create(switch, TweenInfo.new(0.25), {BackgroundColor3 = state and Color3.fromRGB(140, 60, 255) or Color3.fromRGB(60,60,70)}):Play()
+            TweenService:Create(circle, TweenInfo.new(0.25), {Position = UDim2.new(0, state and 38 or 4, 0.5, -14)}):Play()
         end
     end)
 end
 
-AddSlider("Taille des Boxes", 0.5, 3.5, 1.3, function(v) ESP.BoxMultiplier = v end)
-AddSlider("Épaisseur Tracers", 1, 7, 2, function(v) ESP.TracerThickness = v end)
-AddSlider("Hauteur Info", 2, 9, 4, function(v) ESP.BillboardOffset = v end)
-
-Scrolling.CanvasSize = UDim2.new(0,0,0, UIList.AbsoluteContentSize.Y + 30)
-
-
-local Tracers, Boxes, Billboards = {}, {}, {}
-
-local function rainbow(freq) 
-    return Color3.fromRGB(
-        math.floor(math.sin(freq)*127 + 128),
-        math.floor(math.sin(freq+2)*127 + 128),
-        math.floor(math.sin(freq+4)*127 + 128)
-    )
+local function AddSlider(parent, name, min, max, def, callback)
+    
 end
 
-local function updateESP()
-    if not ESP.Enabled then return end
-    local t = tick()
+s
+AddToggle(VisualsTab, "ESP Activé", true, function(v) ESP.Enabled = v end)
+AddToggle(VisualsTab, "Tracers", true, function(v) ESP.Tracers = v end)
+AddToggle(VisualsTab, "Boxes", true, function(v) ESP.Boxes = v end)
+AddToggle(VisualsTab, "Player Info", true, function(v) ESP.Info = v end)
+AddToggle(VisualsTab, "Rainbow Effect", true, function(v) ESP.Rainbow = v end)
 
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player == LocalPlayer or not player.Character then continue end
 
-        local root = player.Character:FindFirstChild("HumanoidRootPart")
-        local head = player.Character:FindFirstChild("Head")
-        if not root or not head then continue end
+tabs.Team = Instance.new("Frame")
+tabs.Team.Size = UDim2.new(1,0,1,0)
+tabs.Team.BackgroundTransparency = 1
+tabs.Team.Visible = false
+tabs.Team.Parent = Content
 
-        local shouldShow = ESP.TeamMode == "All" or
-                          (ESP.TeamMode == "Enemies" and player.Team ~= LocalPlayer.Team) or
-                          (ESP.TeamMode == "Allies" and player.Team == LocalPlayer.Team)
 
-        if not shouldShow then continue end
-
-        local rootPos, onScreen = Camera:WorldToViewportPoint(root.Position)
-
-        -- Tracers
-        if ESP.Tracers and onScreen then
-            if not Tracers[player] then Tracers[player] = Drawing.new("Line") end
-            local line = Tracers[player]
-            line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-            line.To = Vector2.new(rootPos.X, rootPos.Y)
-            line.Color = ESP.Rainbow and rainbow(t + player.UserId) or Color3.fromRGB(255, 50, 50)
-            line.Thickness = ESP.TracerThickness
-            line.Transparency = 1
-            line.Visible = true
-        elseif Tracers[player] then Tracers[player].Visible = false end
-
-        -- Boxes
-        if ESP.Boxes and onScreen then
-            if not Boxes[player] then Boxes[player] = Drawing.new("Square") end
-            local box = Boxes[player]
-            local size = (Camera:WorldToViewportPoint(head.Position) - rootPos).Magnitude * 2.4 * ESP.BoxMultiplier
-            box.Size = Vector2.new(size, size * 2.6)
-            box.Position = Vector2.new(rootPos.X - size/2, rootPos.Y - size * 1.35)
-            box.Color = ESP.Rainbow and rainbow(t + player.UserId) or Color3.fromRGB(255, 50, 50)
-            box.Thickness = 2
-            box.Transparency = 1
-            box.Filled = false
-            box.Visible = true
-        elseif Boxes[player] then Boxes[player].Visible = false end
-
-        -- Info
-        if ESP.Info then
-            if not Billboards[player] then
-                local bg = Instance.new("BillboardGui")
-                bg.Size = UDim2.new(0, 220, 0, 90)
-                bg.StudsOffset = Vector3.new(0, ESP.BillboardOffset, 0)
-                bg.AlwaysOnTop = true
-                bg.Adornee = root
-                bg.Parent = root
-
-                -- Name, Distance, Health (simplifié)
-                local name = Instance.new("TextLabel", bg)
-                name.Size = UDim2.new(1,0,0.4,0)
-                name.BackgroundTransparency = 1
-                name.Text = player.Name
-                name.TextColor3 = Color3.fromRGB(255,255,255)
-                name.TextScaled = true
-                name.Font = Enum.Font.GothamBold
-
-                Billboards[player] = bg
-            end
-            Billboards[player].Enabled = onScreen
-            Billboards[player].StudsOffset = Vector3.new(0, ESP.BillboardOffset, 0)
-        end
-    end
-end
 
 RunService.RenderStepped:Connect(updateESP)
 
--- Notification
-game:GetService("StarterGui"):SetCore("SendNotification",{
+game:GetService("StarterGui"):SetCore("SendNotification", {
     Title = "Rainbow ESP V7",
-    Text = "GUI Professionnel chargé avec succès",
-    Duration = 8
+    Text = "Interface moderne chargée",
+    Duration = 6
 })
